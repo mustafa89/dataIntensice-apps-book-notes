@@ -1,22 +1,45 @@
-4.2 Core k8s objects
 
+- [CKA Exam note](#cka-exam-note)
+  - [4.0 Understanding API Access and Commands](#40-understanding-api-access-and-commands)
+    - [4.2 Core Kubernetes objects](#42-core-kubernetes-objects)
+      - [Access](#access)
+      - [Checks rights:](#checks-rights)
+    - [4.3 Options ot explore the API](#43-options-ot-explore-the-api)
+      - [Interacting with the API](#interacting-with-the-api)
+    - [4.4 Kubectl to Manage API objects.](#44-kubectl-to-manage-api-objects)
+    - [4.5 Using YAML files to define API Objects.](#45-using-yaml-files-to-define-api-objects)
+    - [4.6 Using Curl to work with API Objects](#46-using-curl-to-work-with-api-objects)
+    - [4.6 Understanding other commands](#46-understanding-other-commands)
+  - [5.0 Running pods with deployments.](#50-running-pods-with-deployments)
+    - [5.2 Managing Pods and Deployments](#52-managing-pods-and-deployments)
+    - [5.3 Running Pods by deployments](#53-running-pods-by-deployments)
+    - [5.4 Understanding labels and annotations](#54-understanding-labels-and-annotations)
+    - [5.5 Managing Rolling updates.](#55-managing-rolling-updates)
+    - [5.6 Managing Deployment History](#56-managing-deployment-history)
+    - [5.7 Using init containers.](#57-using-init-containers)
+    - [5.8 Managing Stateful sets.](#58-managing-stateful-sets)
+    - [5.9 Using DaemonSets](#59-using-daemonsets)
+# CKA Exam note
+
+## 4.0 Understanding API Access and Commands
+
+### 4.2 Core Kubernetes objects
 
 - k8s has a collection of APIs
 - APIs have versions
 - We set the versions in the yaml definitions to specify which API version we want to use.
 
-Aceess
+#### Access
 
 - API access is through RBAC
 - RBAC: Account mapped to certificates and associated with a username.
 - Defined in `~/.kube/config`
 
-Checks rights:
+#### Checks rights:
 
 - `kubectl auth can-i .....`
 
 - With kube admin credentials answer will always be yes (in most cases).
-
 - A POD is the minimal object that can be managed by k8s.
 - Kubernetes manages pods and doesn't manage containers and everything else inside a pod.
 - In order to make managing pods easier, Kubernetes is adding the deployment as an API object.
@@ -30,9 +53,10 @@ Checks rights:
     - Decoupled from the deployment.
     - Created through a Persistent volume claim.
 
-4.3 Options ot explore the API
+### 4.3 Options ot explore the API
 
-Interacting with the API
+#### Interacting with the API
+
 ```bash
 # This will show API groups as well as resources within the APIs, so if you wanna know which resources exist
 kubectl api-resources
@@ -51,20 +75,27 @@ kubectl api-versions
 # Explore API components. => very important.
 kubectl explain
 ```
-4.4 Kubectl to Manage API objects.
 
-Kubectl => default command to interact with the API.
+### 4.4 Kubectl to Manage API objects.
 
+> Kubectl => default command to interact with the API.
+
+```bash
 #Test everything is working
 kubectl cluster-info 
+```
 
+```bash
 # view ~/.kube/config
 Kubectl config view
+```
 
+```
 # Get completion script for Kubectl
 kubectl completion bash|zsh
+```
 
-4.5 Using YAML files to define API Objects.
+### 4.5 Using YAML files to define API Objects.
 
 - apiVersion => api version
 - Kind => which API?
@@ -83,39 +114,47 @@ How to get this information?
 
 - by using `kubectl explain <api kind>`
 
+```bash
 kubectl explain pod
-
+```
+```bash
 # info for spec
 kubectl explain pod.spec
-
+```
+```bash
 # info for pod -> spec -> containers
 kubectl explain pod.spec.containers
+```
 
-4.6 Using Curl to work with API Objects.
+### 4.6 Using Curl to work with API Objects
 
-api-server ---(TLS)---> writes ---(TLS)---> etcd
+> api-server ---(TLS)---> writes ---(TLS)---> etcd
 
 To use curl we also need to use TLS to communicate with the API server.
 For that we need th kube-proxy.
 - Usually, curl is not the way to work with the k8s api.
-
 - kubectl reads the information from the kube config so it does not
 need the kubeproxy
 
+```bash
 #Using simple curl
 curl --cert myuser.pem --key myuser-key.pem --cacert /root/myca.pem https://controller:6443/api/v1
+```
 
+```bash
 # Using kube proxy
 kubectl proxy --port=8001 &
 curl http://localhost:8001/api/v1/namespace/
+```
 
-4.6 Understanding other commands
+### 4.6 Understanding other commands
 
 - `etcdctl` command can be used to interrogate and manage the `etcd` database
 - `etcdctl2` => interact with v2
 - `etcdctl` => version agnostic
 
-5.0 Running pods with deployments.
+
+## 5.0 Running pods with deployments.
 
 5.1 Understanding Namespaces
 
@@ -129,116 +168,141 @@ curl http://localhost:8001/api/v1/namespace/
 - kube-public => World readable NS. Stores Generic info. Usually empty.
 - kube-system => Contains all the infrastructure pods => Needed to run kubernetes itself.
 
-kubectl get ns 
-kubectl get all --all-Namespaces
-kubectl create ns dev
-kubectl describe ns dev 
+`kubectl get ns`
+`kubectl get all --all-namespaces`
+`kubectl create ns dev`
+`kubectl describe ns dev` 
 
-5.2 Managing Pods and Deployments
+### 5.2 Managing Pods and Deployments
 
-Easiest way to create a deployment
-
+```bash
+# Easiest way to create a deployment
 kubectl create deployment --image=nginx my-nginx
+```
 
-Get the deployment in Yaml form 
-
+```bash
+# Get the deployment in Yaml form 
 kubectl get deployments.apps my-nginx -o yaml 
+```
 
-Fasted way to create a deployment files
-
+```bash
+# Fasted way to create a deployment files
 kubectl create deployment --dry-run --image=nginx --output=yaml my-nginx-app > nginx-deployment.yaml 
+```
 
-5.3 Running Pods by deployments
+### 5.3 Running Pods by deployments
 
 - Deployment scalability via replicaset definition.
+
+```bash
+# Increase replicas via kubectl
+kubectl scale deployment my-nginx --replicas=3
+```
+
+```bash
+# Will open the deployment in editor to edit, but we can only change a few things
+# like the replica set.
+kubectl edit deployments.apps my-nginx-app
+```
+
+
+### 5.4 Understanding labels and annotations
+
+- Labels are what connect applications together.
+
+```bash
+# Manual method to set labels
+kubectl get deployments --show-labels
+```
+
+```bash
+# Add another label
+kubectl label deployments.apps my-nginx state=demo => adds another label.
+```
+
+```bash
+# View with tag filer
+kubectl get all --selector state=demo
+# or
+kubectl describe dpl.apps nginx
  
- kubectl scale deployment my-nginx --replicas=3
+```
+**Label is used by the deployment to monitor the availability of the pods**
 
- - We can also do
-
- kubectl edit deployments.apps my-nginx-app
-
- Will open the deployment in editor to edit, but we can only change a few things
- like the replica set.
-
- 5.4 Understanding labels and annotations
-
- - Labels are what connect applications together.
-
- Manual method to set labels
-
- kubectl get deployments --show-labels
-
- kubectl label deployments.apps my-nginx state=demo => adds another label.
-
- kubectl get all --selector state=demo
-
-
- kubectl describe dpl.apps nginx
- 
- Label is used by the deployment to monitor the availability of the pods
-
- We can test it by removing a pod from the running pod in a deployment, and the 
+- We can test it by removing a pod from the running pod in a deployment, and the 
  deployment will create a new one because to it the pod does not exist anymore.
 
- kubectl label pod nginx-a123kjb123 run-   => run - remove the label from the pod
- kubectl get pods  
+```bash
+# Remove label from a pod
+kubectl label pod nginx-a123kjb123 run-   => run - remove the label from the pod
+# and view it again, the label will be gone and k8s will be bringing up a new one.
+kubectl get pods 
+``` 
 
-5.5 Managing Rolling updates.
+### 5.5 Managing Rolling updates.
 
-deployment => replicaset => pod1, pod2, pod3
+> deployment => replicaset => pod1, pod2, pod3
 
-When we do a updates
+When we do a updates deployment creates a new replicaset. 
 
- Deployment creates a new replicaset. 
+> deployment => new-replicaset => pod1, pod2, pod3
 
- deployment => new-replicaset => pod1, pod2, pod3
+and the old pods will be cleaned up.
 
- and the old pods will be cleaned up.
+- Two parameters are used to manage this
+  - maxSurge        => How many pods we can have more than the required number of pods.
+  - maxUnavailable. => How many pods we can have less than the required number of pods.
 
- Two parameters are used to manage this
- - maxSurge        => How many pods we can have more than the required number of pods.
- - maxUnavailable. => How many pods we can have less than the required number of pods.
-The parameters are set under the update strategy in a deployment.
 
+```bash
+#The parameters are set under the update strategy in a deployment.
 kubectl explain deployments.spec.strategy.rollingUpdate
+```
 
-The default is `RollingUpdate`. We can also set to `Recreate`.
-Some application don't support RollingUpdate so we set the strategy to Recreate
-so they never have two containers of the same app running at the same time.
+- The default is `RollingUpdate`. We can also set to `Recreate`.
+- Some application don't support RollingUpdate so we set the strategy to Recreate
+  so they never have two containers of the same app running at the same time.
 
-5.6 Managing Deployment History
+### 5.6 Managing Deployment History
 
-Managing the rollout update History
+- Managing the rollout update History
 
+```bash
+# View rollout history
 kubectl rollout -h
+```
+```bash
+# see deployment history of all deployments
+kubectl rollout history deployment
+```
+- Now change the deployment.
 
-kubectl rollout history deployment => see deployment history of all deployments
-
-now change the deployment.
-
+```bash
+# Update deployment
 kubectl edit deployments.apps <definition name>
 kubectl rollout history deployment  => we will see the update in the rolling history.
+```
 
-See the history of a specific deployment and it's specific revisions.
+```bash
+# See the history of a specific deployment and it's specific revisions.
 kubectl rollout history deployment rolling-nginx --revision=1 
 kubectl rollout history deployment rolling-nginx --revision=2
+```
 
-And if we want to rollback
-
+```bash
+# And if we want to rollback
 kubectl rollout undo deployment rolling-nginx --to-revision=1
+```
+> We can use record=true with our kubectl commands to get better rollout history
 
-We can use record=true with our kubectl commands to get better rollout history
-
-5.7 Using init containers.
+### 5.7 Using init containers.
 
 - Init container is a special case of learning a pod with two containers. 
-Of these two containers, one can be used as an init container. 
-Any init container can be used to prepare something, and this will be 
-done before the main application is started. 
-Before the init container is successfully completed the main 
-application will not be started.
-
+- Of these two containers, one can be used as an init container. 
+- Any init container can be used to prepare something, and this will be 
+  done before the main application is started. 
+- Before the init container is successfully completed the main 
+  application will not be started.
 - Init containers are defined using the initContainers field in the pod specification.
 
 ```yaml
@@ -257,7 +321,7 @@ spec:
     command: ['sh', '-c', 'until nslookup myservice; do echo waiting for myservice; sleep 2; done;'] 
 ```
 
-5.8 Managing Stateful sets.
+### 5.8 Managing Stateful sets.
 
 
 - A StatefulSet is not the most common object but can be useful, it's like a deployment, but it provides guarantees about the ordering and the uniqueness of Pods. 
@@ -327,9 +391,9 @@ spec:
 
 ```
 
-The volumeClaim above needs a persistent volume to be created first before we can actually deploy this.
+> The volumeClaim above needs a persistent volume to be created first before we can actually deploy this.
 
-5.9 Using DaemonSets
+### 5.9 Using DaemonSets
 
  - DaemonSet ensures that all or some nodes run a copy of a pod. 
  - So it's a solution to run pods, multiple times, on all of the nodes. And that's particularly useful for surfaces that should be running everywhere.
@@ -339,7 +403,7 @@ The volumeClaim above needs a persistent volume to be created first before we ca
  - DaemonSets are specific in some situations, for example, you can run a cluster storage Daemon, such as ceph or glusterd on each of the node to provide storage. 
  - They can also be used for log collection, or for monitoring Daemons, such as collectd or Prometheus Node Exporter and others. 
 
- An examplewith fluentd.
+ An example with fluentd.
 
  ```yaml
  apiVersion: apps/v1
@@ -386,4 +450,4 @@ spec:
           path: /var/lib/docker/containers
 ```
 
-kubectl get daemonset -n kubesystem => will show us the daemon sets.
+> kubectl get daemonset -n kubesystem => will show us the daemon sets.
