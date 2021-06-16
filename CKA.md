@@ -1,9 +1,9 @@
 
-- [CKA Exam note](#cka-exam-note)
+- [Certified Kubernetes Administrator Exam Notes](#certified-kubernetes-administrator-exam-notes)
   - [4.0 Understanding API Access and Commands](#40-understanding-api-access-and-commands)
     - [4.2 Core Kubernetes objects](#42-core-kubernetes-objects)
       - [Access](#access)
-      - [Checks rights:](#checks-rights)
+      - [Checks rights](#checks-rights)
     - [4.3 Options ot explore the API](#43-options-ot-explore-the-api)
       - [Interacting with the API](#interacting-with-the-api)
     - [4.4 Kubectl to Manage API objects.](#44-kubectl-to-manage-api-objects)
@@ -11,6 +11,7 @@
     - [4.6 Using Curl to work with API Objects](#46-using-curl-to-work-with-api-objects)
     - [4.6 Understanding other commands](#46-understanding-other-commands)
   - [5.0 Running pods with deployments.](#50-running-pods-with-deployments)
+    - [5.1 Understanding Namespaces](#51-understanding-namespaces)
     - [5.2 Managing Pods and Deployments](#52-managing-pods-and-deployments)
     - [5.3 Running Pods by deployments](#53-running-pods-by-deployments)
     - [5.4 Understanding labels and annotations](#54-understanding-labels-and-annotations)
@@ -19,7 +20,9 @@
     - [5.7 Using init containers.](#57-using-init-containers)
     - [5.8 Managing Stateful sets.](#58-managing-stateful-sets)
     - [5.9 Using DaemonSets](#59-using-daemonsets)
-# CKA Exam note
+# Certified Kubernetes Administrator Exam Notes
+
+- Below are notes from the Live Lessons Course by @sandervanvugt for the CKA Exam.
 
 ## 4.0 Understanding API Access and Commands
 
@@ -35,7 +38,7 @@
 - RBAC: Account mapped to certificates and associated with a username.
 - Defined in `~/.kube/config`
 
-#### Checks rights:
+#### Checks rights
 
 - `kubectl auth can-i .....`
 
@@ -156,7 +159,7 @@ curl http://localhost:8001/api/v1/namespace/
 
 ## 5.0 Running pods with deployments.
 
-5.1 Understanding Namespaces
+### 5.1 Understanding Namespaces
 
 - Namespaces are a linux kernel feature that is leveraged up to kubernetes level.
 - Namespaces implement strict resource separation.
