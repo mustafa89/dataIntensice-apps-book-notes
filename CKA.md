@@ -20,6 +20,15 @@
     - [5.7 Using init containers.](#57-using-init-containers)
     - [5.8 Managing Stateful sets.](#58-managing-stateful-sets)
     - [5.9 Using DaemonSets](#59-using-daemonsets)
+  - [6.0 Understanding Kubernetes Storage Options](#60-understanding-kubernetes-storage-options)
+    - [6.1 Understanding Kubernetes Storage Options](#61-understanding-kubernetes-storage-options)
+    - [6.2 Configuring Pod Volumes](#62-configuring-pod-volumes)
+    - [6.3 Configuring Persistent Volume (PV) storage](#63-configuring-persistent-volume-pv-storage)
+    - [6.4 Configuring Persistent Volume Claims (PVCs)](#64-configuring-persistent-volume-claims-pvcs)
+    - [6.5 Configuring Pod Storage with PV and PVC.](#65-configuring-pod-storage-with-pv-and-pvc)
+    - [6.6 Understanding ConfigMaps and Secrets](#66-understanding-configmaps-and-secrets)
+    - [6.7 Managing ConfigMaps](#67-managing-configmaps)
+    - [6.8 Managing Secrets](#68-managing-secrets)
 # Certified Kubernetes Administrator Exam Notes
 
 - Below are notes from the Live Lessons Course by @sandervanvugt for the CKA Exam.
@@ -454,3 +463,306 @@ spec:
 ```
 
 > kubectl get daemonset -n kubesystem => will show us the daemon sets.
+
+## 6.0 Understanding Kubernetes Storage Options
+
+- This section deals with understanding how kubernetes deals with storage.
+
+### 6.1 Understanding Kubernetes Storage Options
+
+Pod => Spec => Volumes (internal. It is ephemeral, will go away when the pod goes away)
+
+- We don't want that to happen. We want the storage to persist.
+- For that we have a few options.
+  - PVC (Persistent volume claim) => PV (Persistent Volume)  => NFS, Ceph, EBS ....
+  - ConfigMap (We can storefiles and vars in the ConfigMap).
+  - Secret (Special config map where the variables are secret, base64encoded)
+
+### 6.2 Configuring Pod Volumes
+
+Internally shared volume
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: sharedvolume
+  labels:
+    app: sharedvolume
+spec:
+  containers:
+  - name: centos1
+    image: centos:7
+    volumeMounts:
+      - mountPath: /centos1
+        name: test
+  - name: centos2
+    image: centos:7
+    volumeMounts:
+      - mountPath: /centos2
+        name: test
+  volumes:
+    - name: test
+      emptyDir: {}  # ==> Will just create an empty temporary directory in side the containers.
+  ```
+- Now to check
+
+```bash
+# shell access one of the containers above. By default will shell access the first container
+kubectl exec -it sharedvolume -- /bin/bash
+# inside the shell
+touch centos1/newfile
+exit
+```
+- Now check if the file exists in the second container
+```bash
+# for the second container
+kubectl exec -it sharedvolume -c centos2 -- ls /centos2
+newfile # => we see the file exists
+```bash
+- To see all the types of volumes available
+kubectl explain pod.spec.volumes
+```
+
+### 6.3 Configuring Persistent Volume (PV) storage
+
+- Persistent volumes deployments create the volume. 
+- This will create a persistent volume.
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-volume
+  labels:
+    app: pv-volume
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/mydata"
+```
+- Then we can do
+```bash
+# to view the volume
+kubectl explain pv.spec.storageClassName
+kubectl get pv pv-volume
+```
+> hostpath is totally used for multinode environments. It's mostly used for testing and single node deployments
+
+- NFS PV
+
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-nfs
+  labels:
+    app: pv-volume
+spec:
+  capacity:
+    storage: 2Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  nfs:
+    path: "/mydata"
+    server: myserver
+    readonly: false
+```
+
+### 6.4 Configuring Persistent Volume Claims (PVCs)
+
+- Once a PV is created it needs to be claimed. For that a persistent volume claim needs to be created.
+- The PVC looks for the volume that matches the criteria defined closest to as seen below.
+- For example the accessMode must be ReadWriteOnce and storage required is 1Gi so that needs to be satisfied.
+- Nothing else is actually needed
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClain
+metadata:
+  name: pv-claim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+```
+
+```bash
+# and to view it
+kubectl get pvc
+```
+- Once the volumes have been claimed we can run the command
+`kubectl get pv` again and we will see the volumes and which claim they have been claimed by.
+- Once the PV has been claimed by the PVCs, the pod can then use it.
+
+### 6.5 Configuring Pod Storage with PV and PVC.
+
+- Inside the pod definition we will first create a volume
+- The we will associate the volume with a claim name (myPVC).
+- Then we have the PVC itself named myPVC and has an access mode (ReadWriteOnce).
+- Then we have a PV with a accessMode (ReadWriteOnce). 
+So this is how it's all ties together:
+> Pod => volume ==(name)==> ClaimName ==(name)==> PVC ==(accessMode)==> PV (accessMode)
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata: 
+  name: pv-pod
+spec:
+  volumes:
+  - name: pv-storage
+  persistentVolumeClaim:
+    claimName: pv-claim   # will look externally for a PVC with the name pv-claim. If found it will define it internally as pv-storage
+  containers:
+  - name: pv-container
+    image: nginx
+    ports:
+      - containerPort: 80
+        name: "http-server"
+    volumeMounts:
+    - mountPath: "/usr/share/nginx/html"
+      name: pv-storage # will mount the pv-storage (pvclaim) on mounth path.
+```
+
+### 6.6 Understanding ConfigMaps and Secrets
+
+- The goal is to decouple things in kubernetes.
+- ConfigMaps provide files, contents of directories or variables from outside of a pod.
+- So a pod will create references to different things to configMap. For example
+- Pod Volumes will reference files, env vars will reference variables....
+- And when we want to keep the data in the configmap secret, we use secrets.
+- Secrets store base64encode vars.
+
+### 6.7 Managing ConfigMaps
+
+- Lets take nginx config file and name it nginx-customer-config.conf
+
+```lua
+server {
+    listen       8888;
+    server_name  localhost;
+    location / {
+        root   /usr/share/nginx/html;
+        index  index.html index.htm;
+    }
+}
+```
+
+- Lets create a config map from that
+```bash
+kubectl create cm nginx-cm --from-file nginx-custom-config.conf
+```
+- And to view it
+```bash
+kubectl get cm nginx-cm -o yaml
+```
+- Now we can use this configMap in a pod
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: nginx-cm
+  labels:
+    role: web
+spec:
+  containers:
+  - name: nginx-cm
+    image: nginx
+    volumeMounts:
+    - name: conf      # Will match the volume.name below
+      mountPath: /etc/nginx/conf.d
+  volumes:
+  - name: conf
+    configMap:
+      name: nginx-cm  # Needs to be the same as the name of the ConfigMap we definedabove
+      items:
+      - key: nginx-custom-config.conf
+        path: default.conf
+```
+- The result will be `/etc/nginx/conf.d/default.conf`
+
+- Referencing variable from a configMap
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-pod
+spec:
+  containers:
+  - name: test
+    image: nginx
+    env:
+    - name: COLOR  # env var name
+      valueFrom:
+        configMapKeyRef:
+          name: myconfig
+          key: color    # get env var values from config map.
+  restartPolicy: Never
+```
+
+### 6.8 Managing Secrets
+
+- Storing secrets data.
+- Used similar to ConfigMaps.
+- All values in the secret files must be base64 encoded.
+
+```bash
+# to create a secret
+kubectl create secret generic mysecrets --from-literal=password=password --from-literal=user=linda
+```
+- Then to view it
+```bash
+kubectl get secrets mysecrets -o yaml
+```
+
+- Using secrets as volumes:
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secret-pod
+spec:
+  containers:
+  - name: test
+    image: nginx
+    volumeMounts:
+    - mountPath: "/topsecret"
+      name: secret
+  volumes:
+  - name: secret
+    secret:
+      secretName: mysecret
+```
+
+result will be two files created
+- /topsecret/password
+- /topsecret/user
+
+- Using secrets as variables
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mysql
+spec:
+  containers:
+  - name: mysql
+    image: busybox
+    env:
+    - name: MYSQL_ROOT_PASSWORD  # env var name
+      valueFrom:
+        configMapKeyRef:
+          name: mysql
+          key: password    # get env var values from secrets.
+```
+
+LAB Question:
+
+Configure a 2Gib persistent storage solution that uses a permanent directory on the host that runs the Pod. 
+Configure a Deployment that runs the httpd web server and mounts the storage on /var/www
